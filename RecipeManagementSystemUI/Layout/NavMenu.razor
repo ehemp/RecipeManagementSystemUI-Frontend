@@ -1,0 +1,113 @@
+﻿@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@inject NavigationManager Navigation
+@inject UserStateService _userStateService
+@inject AuthHttpMessageHandler _authHttpMessageHandler
+@inject AuthService _authService
+@using Newtonsoft.Json
+@using Models
+
+    
+<div class="top-row ps-3 navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#">Omni-RMS</a>
+        <button class="navbar-toggler" type="button" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+
+<div class="@NavMenuCssClass nav-scrollable bg-light shadow-sm p-3" style="min-height: 100vh;">
+    <nav class="nav flex-column">
+        <!-- Home -->
+        <div class="nav-item mb-2">
+            <NavLink class="nav-link text-dark d-flex align-items-center" href="" Match="NavLinkMatch.All">
+                <i class="bi bi-house-door-fill me-2"></i> Home
+            </NavLink>
+        </div>
+
+        <!-- Get started -->
+        <div class="nav-item mb-2">
+            <NavLink class="nav-link text-dark d-flex align-items-center" href="get-started">
+                <i class="bi bi-plus-square-fill me-2"></i> About
+            </NavLink>
+        </div>
+
+        <!-- User Management -->
+        <div class="nav-item mb-2">
+            <NavLink class="nav-link text-dark d-flex align-items-center" href="user-management">
+                <i class="bi bi-list-nested me-2"></i> User Management
+            </NavLink>
+        </div>
+
+        <!-- Recipe List -->
+        <div class="nav-item mb-2">
+            <NavLink class="nav-link text-dark d-flex align-items-center" href="recipe-list">
+                <i class="bi bi-list-nested me-2"></i> Recipe List
+            </NavLink>
+        </div>
+
+        <!-- User State -->
+        <div class="nav-item mb-2">
+            <RecipeManagementSystemUI.Component.UserState></RecipeManagementSystemUI.Component.UserState>
+        </div>
+
+        <!-- Login/Logout -->
+        <div class="nav-item">
+            <button @onclick="@(_userStateService.TokenPresent ? HandleLogout : HandleLogin)"
+                    class="btn btn-sm btn-outline-dark w-100">
+                @(_userStateService.TokenPresent ? "Logout" : "Login")
+            </button>
+        </div>
+    </nav>
+</div>
+
+
+@code {
+    private bool collapseNavMenu = true;
+
+    private string LoginOut { get; set; }
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        _userStateService.OnChange += StateHasChanged;
+        _authService.OnAuthStateChanged += StateHasChanged;
+        Console.WriteLine($"NavMenu OnInitialized StateHasChanged");
+    }
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+    private async Task HandleLogout()
+    {
+        var loggedOut = await _authService.LogoutAsync();
+        try
+        {   
+            if (!loggedOut)
+            {
+                Navigation.NavigateTo("/login", forceLoad: false);
+            }
+            else
+            {
+                Console.WriteLine($"User still logged in. {Navigation.Uri}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error at HandleLogout: {ex}");
+        }
+    }
+
+
+    public void Dispose()
+    {
+        // Unsubscribe from state change events to avoid memory leaks
+        _userStateService.OnChange -= StateHasChanged;
+        _authService.OnAuthStateChanged -= StateHasChanged;
+    }
+    private async Task HandleLogin() => Navigation.NavigateTo("/login");
+
+}

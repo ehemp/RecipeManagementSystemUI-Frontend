@@ -1,0 +1,60 @@
+﻿@inject NavigationManager Navigation
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@inject UserStateService _userStateService
+@inject AuthService _authService
+@using Models
+@using Newtonsoft.Json
+
+@if (isAuthenticated)
+{
+    @ChildContent
+}
+
+@code {
+    public bool IsAuthenticated { get; set; }
+    private bool isAuthenticated { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    private bool _isRendered = false;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        _authService.OnAuthStateChanged += RefreshLayout;
+        isAuthenticated = await IsUserAuthenticatedAsync();
+        if (!isAuthenticated || !_userStateService.TokenPresent)
+        {
+            //Console.WriteLine($"isAuthenticated? {isAuthenticated}");
+            Navigation.NavigateTo("/login");
+        }
+        else if (isAuthenticated && _userStateService.TokenPresent)
+        {
+            //_authService.NotifyAuthStateChanged();
+            Navigation.NavigateTo(Navigation.Uri, forceLoad: false);
+        }
+    }
+
+    private async Task<bool> IsUserAuthenticatedAsync()
+    {
+
+        IsAuthenticated = await _authService.GetUserAsync();
+        //Console.WriteLine($"IsAuthenticated: {IsAuthenticated}");
+        return await Task.FromResult(IsAuthenticated);
+    }
+
+    private void RefreshLayout()
+    {
+        InvokeAsync(StateHasChanged);
+        Console.WriteLine($"AuthGuard refreshed at: {DateTime.Now}");
+    }
+
+    public void Dispose()
+    {
+        _authService.OnAuthStateChanged -= RefreshLayout;
+
+    }
+}
+
+

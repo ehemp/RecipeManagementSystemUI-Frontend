@@ -1,0 +1,43 @@
+﻿@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@inject AuthService _authService
+
+<div class="page">
+    <div class="sidebar">
+            <RecipeManagementSystemUI.Component.AuthGuard >
+            
+                <NavMenu />
+        
+            </RecipeManagementSystemUI.Component.AuthGuard>
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+@code {
+
+    protected override void OnInitialized()
+    {
+        _authService.OnAuthStateChanged += RefreshLayout;
+    }
+
+    private void RefreshLayout()
+    {
+        InvokeAsync(StateHasChanged);
+        Console.WriteLine($"MainLayout refreshed at: {DateTime.Now}");
+    }
+
+    public void Dispose()
+    {
+        _authService.OnAuthStateChanged -= RefreshLayout;
+        
+    }
+}

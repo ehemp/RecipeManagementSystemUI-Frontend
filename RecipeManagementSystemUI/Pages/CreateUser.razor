@@ -1,0 +1,169 @@
+﻿@page "/create-user"
+@inject HttpClient _httpClient
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@inject UserStateService _userStateService
+@inject NavigationManager Navigation
+@inject IHttpClientFactory httpClientFactory
+@using Newtonsoft.Json
+
+
+<h3 class="mb-4">Create User</h3>
+
+@if (!_userStateService.IsAdmin)
+{
+    <p>You do not have permission to access this page.</p>
+    @* Optionally redirect *@
+    //Navigation.NavigateTo("/login");
+}
+else
+{
+    <EditForm Model="newUser" OnValidSubmit="HandleCreateUser">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <!-- Username -->
+        <div class="mb-3">
+            <label for="username" class="form-label">Username:</label>
+            <InputText id="username" class="form-control" @bind-Value="newUser.Username" />
+        </div>
+
+        <!-- Password -->
+        <div class="mb-3">
+            <label for="password" class="form-label">Password:</label>
+            <InputText id="password" type="password" class="form-control" @bind-Value="newUser.Password" @oninput="CheckPasswordStrength" />
+            <div class="progress mt-2" style="height: 10px;">
+                <div class="progress-bar" role="progressbar" style="width: @PasswordStrength%;" aria-valuenow="@PasswordStrength" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+            <small class="text-muted">@PasswordStrengthMessage</small>
+        </div>
+
+        <!-- Role -->
+        <div class="mb-3">
+            <label for="role" class="form-label">Role:</label>
+            <InputSelect id="role" class="form-select" @bind-Value="newUser.Role">
+                <option value="User">User</option>
+                <option value="Admin">Admin</option>
+            </InputSelect>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" class="btn btn-primary" disabled="@IsProcessing">
+            @if (IsProcessing)
+            {
+                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true">Processing...</span>
+
+            }
+            else
+            {
+                @("Create User")
+            }
+        </button>
+
+        <!-- Success Feedback -->
+        @if (SuccessMessageVisible)
+        {
+            <div class="alert alert-success mt-3" role="alert">
+                User created successfully!
+            </div>
+        }
+    </EditForm>
+}
+
+
+@code {
+    private CreateUserRequest newUser = new CreateUserRequest();
+    private bool IsAdmin = false;
+    //private User newUser = new();
+    private bool IsProcessing = false;
+    private bool SuccessMessageVisible = false;
+
+    private int PasswordStrength = 0;
+    private string PasswordStrengthMessage = "Enter a password.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check if the logged-in user is an admin
+        var role = await LocalStorage.GetItemAsync<string>("user");
+        if (!string.IsNullOrEmpty(role))
+        {
+            // Parse the JSON to extract the role property
+            var userObject = JsonConvert.DeserializeObject<CreateUserRequest>(role);
+            var userRole = userObject.Role;
+            Console.WriteLine($"User Role: {userRole}");
+            IsAdmin = userRole == "Admin";
+        }
+        else
+        {
+            Console.WriteLine("User is not logged in or no role found.");
+        }
+
+
+    }
+
+    private async Task HandleCreateUser()
+    {
+        IsProcessing = true; // Show loading state
+        SuccessMessageVisible = false; // Hide success message initially
+        try
+        {
+            _httpClient = httpClientFactory.CreateClient("AuthenticatedClient");
+            var response = await _httpClient.PostAsJsonAsync("https://localhost:7256/api/User/create", newUser);
+
+            if (response.IsSuccessStatusCode)
+            {
+                SuccessMessageVisible = true;
+                newUser = new CreateUserRequest(); // Reset form
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Error: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception: {ex.Message}");
+        }
+        finally
+        {
+            IsProcessing = false; // Hide loading state
+        }
+    }
+
+    private void CheckPasswordStrength(ChangeEventArgs e)
+    {
+        var password = e.Value?.ToString() ?? string.Empty;
+        PasswordStrength = CalculatePasswordStrength(password);
+
+        PasswordStrengthMessage = PasswordStrength switch
+        {
+            >= 80 => "Strong",
+            >= 50 => "Moderate",
+            > 0 => "Weak",
+            _ => "Enter a password."
+        };
+    }
+
+    private int CalculatePasswordStrength(string password)
+    {
+        if (string.IsNullOrEmpty(password)) return 0;
+
+        int strength = 0;
+
+        if (password.Length >= 8) strength += 30;
+        if (System.Text.RegularExpressions.Regex.IsMatch(password, @"[A-Z]")) strength += 20;
+        if (System.Text.RegularExpressions.Regex.IsMatch(password, @"[a-z]")) strength += 20;
+        if (System.Text.RegularExpressions.Regex.IsMatch(password, @"\d")) strength += 20;
+        if (System.Text.RegularExpressions.Regex.IsMatch(password, @"[^\w\d\s]")) strength += 10;
+
+        return Math.Min(strength, 100);
+    }
+
+    private class CreateUserRequest
+    {
+        public string Username { get; set; }
+        public string Password { get; set; }
+        public string Role { get; set; }
+    }
+
+}

@@ -1,0 +1,59 @@
+﻿@page "/update-recipe/{RecipeId}"
+@inject RecipeService recipeService
+@inject NavigationManager Navigation
+@using RecipeManagementSystemUI.Models
+
+
+<h3>Edit Recipe</h3>
+
+<EditForm Model="@recipe" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group">
+        <label for="title">Name</label>
+        <InputText id="title" class="form-control" placeholder="@CurrentRecipe.Name" @bind-Value="recipe.Name" />
+    </div>
+    <div class="form-group">
+        <label for="title">Version</label>
+        <InputText id="title" class="form-control" placeholder="@CurrentRecipe.Version" @bind-Value="recipe.Version" />
+    </div>
+    <div class="form-group">
+        <label for="title">Tool</label>
+        <InputText id="title" class="form-control" placeholder="@CurrentRecipe.Tool" @bind-Value="recipe.Tool" />
+    </div>
+    <div class="form-group">
+        <label for="description">Description</label>
+        <InputTextArea id="description" class="form-control" @bind-Value="recipe.Description" />
+    </div>
+    <button type="submit" class="btn btn-primary">Submit</button>
+    <button id="cancel" type="button" class="btn btn-secondary" @onclick="() => Cancel()">Cancel</button>
+</EditForm>
+
+@code {
+    [Parameter]
+    public String RecipeId { get; set; }
+
+    private Recipe CurrentRecipe;
+    private Recipe recipe = new Recipe();
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        Console.WriteLine("Id ", RecipeId);
+        // Fetch the recipe details by Id
+        CurrentRecipe = await recipeService.GetRecipeByIdAsync(RecipeId);
+    }
+
+
+    private async Task HandleValidSubmit()
+    {
+        recipe.LastUpdated = DateTime.Now;
+        recipe.RecipeId = CurrentRecipe.RecipeId;
+        await recipeService.UpdateRecipeAsync(recipe);
+        Navigation.NavigateTo("/recipe-list");
+    }
+
+    private async Task Cancel() => Navigation.NavigateTo("/recipe-list");
+
+}

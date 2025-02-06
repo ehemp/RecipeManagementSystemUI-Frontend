@@ -1,0 +1,66 @@
+﻿@inherits OwningComponentBase
+@using Models
+<div class="modal fade show" style="@((IsRecipeModalOpen ? "display: block;" : "display: none;"))" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">@Title</h5>
+                <button type="button" class="btn-close" aria-label="Close" @onclick="Close"></button>
+            </div>
+            <div class="modal-body">
+                <EditForm Model="recipe" OnValidSubmit="HandleSave">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Recipe Name:</label>
+                        <InputText id="name" class="form-control" @bind-Value="recipe.Name" />
+                    </div>
+                    <div class="mb-3">
+                        <label for="version" class="form-label">Version:</label>
+                        <InputText id="version" class="form-control" @bind-Value="recipe.Version" />
+                    </div>
+                    <div class="mb-3">
+                        <label for="tool" class="form-label">Tool:</label>
+                        <InputText id="tool" class="form-control" @bind-Value="recipe.Tool" />
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description:</label>
+                        <InputTextArea id="description" class="form-control" @bind-Value="recipe.Description" />
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool IsRecipeModalOpen { get; set; }
+    [Parameter] public string Title { get; set; }
+    [Parameter] public Recipe Recipe { get; set; }
+    private Recipe recipe = new Recipe();
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (Recipe != null)
+        {
+            recipe = Recipe;
+        }
+    }
+
+    private async Task HandleSave()
+    {
+        await OnSave.InvokeAsync();
+        await Close();
+    }
+
+    private async Task Close()
+    {
+        IsRecipeModalOpen = false;
+        await OnClose.InvokeAsync();
+    }
+}

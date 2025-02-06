@@ -1,0 +1,100 @@
+﻿@using Newtonsoft.Json
+@using System.Reflection
+
+@{/*TODO*/}
+
+@if (Items is IEnumerable<object> list)
+{
+    <ul>
+        @foreach (var item in list)
+        {
+            if (Items is Dictionary<string, object> dict)
+            {
+                <ul>
+                    @foreach (var kvp in dict)
+                    {
+                        <li>
+                            <strong>@kvp.Key:</strong>
+
+                            @if (kvp.Value is Dictionary<string, object> subDict)
+                            {
+                                <DynamicViewer Items="@kvp.Value" />
+                                <span>Enumerable Object List If1</span>
+                            }
+                            else if (kvp.Value is IEnumerable<object> subList)
+                            {
+                                <DynamicViewer Items="@kvp.Value" />
+                                <span>Enumerable Object List If2</span>
+                            }
+                            else
+                            {
+                                <span> @kvp.Value</span>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                
+                var type = item.GetType();
+                foreach (PropertyInfo info in type.GetProperties())
+                {
+                    // Do something with the property info.
+                    //<span>@info.GetValue(item)</span>
+                    <DynamicViewer Items="@info" />
+                }
+                
+            }
+            
+
+        }
+    </ul>
+}
+else if (Items is Dictionary<string, object> dict)
+{
+    <ul>
+        @foreach (var kvp in dict)
+        {
+            <li>
+                <strong>@kvp.Key:</strong>
+
+                @if (kvp.Value is Dictionary<string, object> subDict)
+                {
+                    <DynamicViewer Items="@kvp.Value" />
+                    <span>If1</span>
+                }
+                else if (kvp.Value is IEnumerable<object> subList)
+                {
+                    <DynamicViewer Items="@kvp.Value" />
+                    <span>If2</span>
+                }
+                else if (kvp.Value is object subObject)
+                {
+                    <DynamicViewer Items="@kvp.Value" />
+                    <span>If3</span>
+                }
+                else
+                {
+                    <span> @kvp.Value</span>
+                    <span>else</span>
+                }
+            </li>
+        }
+    </ul>
+}
+else if (Items is object getObject)
+{
+    <span>@Items</span>
+}
+
+@code {
+    [Parameter] public object Items { get; set; }
+    public class ObjectTest
+    {
+        public string one { get; set; }
+        public string two { get; set; }
+    }
+    private bool IsSimpleType(object obj) =>
+        obj is string || obj is int || obj is bool || obj is Guid || obj is decimal || obj is double;
+}

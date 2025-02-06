@@ -1,0 +1,45 @@
+﻿@page "/add-recipe"
+@inject RecipeService recipeService
+@inject NavigationManager Navigation
+@using RecipeManagementSystemUI.Models
+
+
+<h3>Add New Recipe</h3>
+
+<EditForm Model="@recipe" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group">
+        <label for="title">Name</label>
+        <InputText id="title" class="form-control" @bind-Value="recipe.Name" />
+    </div>
+    <div class="form-group">
+        <label for="title">Version</label>
+        <InputText id="title" class="form-control" @bind-Value="recipe.Version" />
+    </div>
+    <div class="form-group">
+        <label for="title">Tool</label>
+        <InputText id="title" class="form-control" @bind-Value="recipe.Tool" />
+    </div>
+    <div class="form-group">
+        <label for="description">Description</label>
+        <InputTextArea id="description" class="form-control" @bind-Value="recipe.Description" />
+    </div>
+    <button type="submit" class="btn btn-primary">Add Recipe</button>
+    <button id="cancel" type="button" class="btn btn-secondary" @onclick="() => Cancel()">Cancel</button>
+</EditForm>
+
+@code {
+    private Recipe recipe = new Recipe();
+
+    private async Task HandleValidSubmit()
+    {
+        recipe.RecipeId = Guid.NewGuid().ToString();
+        recipe.LastUpdated = DateTime.Now;
+        await recipeService.AddRecipeAsync(recipe);
+        Navigation.NavigateTo("/recipe-list");
+    }
+    private async Task Cancel() => Navigation.NavigateTo("/recipe-list");
+
+}

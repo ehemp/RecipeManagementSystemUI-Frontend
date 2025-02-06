@@ -1,0 +1,143 @@
+﻿@page "/user-management"
+@using RecipeManagementSystemUI.Models
+@using Newtonsoft.Json
+@inject HttpClient _httpClient
+@inject NavigationManager Navigation
+@inject UserStateService _userStateService
+@inject IHttpClientFactory _httpClientFactory
+
+<PageTitle>User Management</PageTitle>
+
+<h3>User Management</h3>
+
+@if (!_userStateService.IsAdmin)
+{
+    <p>You do not have permission to access this page.</p>
+}
+else
+{
+    <button class="btn btn-primary mb-3" @onclick="ShowAddUserModal">Add User</button>
+
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Role</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var user in Users)
+            {
+                <tr>
+                    <td>@user.Username</td>
+                    <td>@user.Role</td>
+                    <td>
+                        <button class="btn btn-warning me-2" @onclick="() => ShowEditUserModal(user)">Edit</button>
+                        <button class="btn btn-danger" @onclick="() => ConfirmDeleteUser(user)">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+        @if (UnauthorizedMessageVisible)
+        {
+            <div class="alert alert-success mt-3" role="alert">
+                @UnauthorizedMessage
+            </div>
+        }
+}
+
+<UserModal IsUserModalOpen="IsUserModalOpen" User="@SelectedUser" OnSave="HandleUserSave" OnClose="CloseEditUserModal" ExMessage="UnauthorizedMessage" UnauthorizedMessageVisible="UnauthorizedMessageVisible" />
+<ConfirmModal IsConfirmModalOpen="@IsConfirmModalOpen" OnConfirm="HandleUserDelete" OnClose="CloseConfirmModal" Title="Delete User"
+              Message="Are you sure you want to delete this user?" />
+
+@code {
+    private List<User> Users = new List<User>();
+    private bool IsUserModalOpen = false;
+    private bool IsConfirmModalOpen = false;
+    private User SelectedUser = new User();
+    private bool UnauthorizedMessageVisible = false;
+    private string UnauthorizedMessage { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Console.WriteLine("isAdmin" + _userStateService.IsAdmin);
+        if (_userStateService.IsAdmin)
+        {
+            await LoadUsers();
+        }
+    }
+
+    private async Task LoadUsers()
+    {
+        _httpClient = _httpClientFactory.CreateClient("AuthenticatedClient");
+        try
+        {
+            Users = await _httpClient.GetFromJsonAsync<List<User>>("https://localhost:7256/api/User/users");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading users: {ex.Message}  {ex} {Users.Count}");
+            UnauthorizedMessageVisible = true;
+            UnauthorizedMessage = $"Error loading users: {ex.Message}";
+
+        }
+    }
+
+    private void ShowAddUserModal()
+    {
+        SelectedUser = new User();
+        IsUserModalOpen = true;
+    }
+
+    private void ShowEditUserModal(User user)
+    {
+        SelectedUser = user;
+        IsUserModalOpen = true;
+    }
+
+    private void ConfirmDeleteUser(User user)
+    {
+        SelectedUser = user;
+        IsConfirmModalOpen = true;
+    }
+
+    private async Task HandleUserSave()
+    {
+        IsUserModalOpen = false;
+        await LoadUsers();
+    }
+
+    private async Task HandleUserDelete()
+    {
+        _httpClient = _httpClientFactory.CreateClient("AuthenticatedClient");
+       try
+        {
+            await _httpClient.DeleteAsync($"https://localhost:7256/api/User/delete/{SelectedUser.UserId}");
+            IsConfirmModalOpen = false;
+            await LoadUsers();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting user: {ex.Message}");
+        }
+    }
+
+    private void OpenConfirmModal(User user)
+    {
+        SelectedUser = user;
+        IsConfirmModalOpen = true;
+    }
+
+    private void CloseConfirmModal()
+    {
+        SelectedUser = null;
+        IsConfirmModalOpen = false;
+    }
+    private void CloseEditUserModal()
+    {
+        SelectedUser = null;
+        IsUserModalOpen = false;
+    }
+}

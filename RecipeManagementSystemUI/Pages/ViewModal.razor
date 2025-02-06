@@ -1,0 +1,46 @@
+﻿@using Models
+<div class="modal fade show" style="@((IsViewModalOpen ? "display: block;" : "display: none;"))" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Recipe Details</h5>
+                <button type="button" class="btn-close" aria-label="Close" @onclick="Close"></button>
+            </div>
+            <div class="modal-body">
+                @if (Recipe != null)
+                {
+                    <p><strong>Name:</strong> @Recipe.Name</p>
+                    <p><strong>ID:</strong> @Recipe.RecipeId</p>
+                    <p><strong>Version:</strong> @Recipe.Version</p>
+                    <p><strong>Tool:</strong> @Recipe.Tool</p>
+                    <p><strong>Description:</strong> @Recipe.Description</p>
+                    <p><strong>Last Updated:</strong> @Recipe.LastUpdated</p>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="Close">Close</button>
+                <button class="btn btn-primary" @onclick="HandleExport">Export to CSV</button>
+            </div>
+        </div>
+    </div>
+</div>
+@code {
+    //private Recipe? SelectedRecipe;
+    [Parameter] public bool IsViewModalOpen { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public Recipe? Recipe { get; set; }
+    [Parameter] public EventCallback OnExport { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private async Task HandleExport()
+    {
+        await OnExport.InvokeAsync();
+
+    }
+
+    private async Task Close()
+    {
+        IsViewModalOpen = false;
+        await OnClose.InvokeAsync();
+    }
+}

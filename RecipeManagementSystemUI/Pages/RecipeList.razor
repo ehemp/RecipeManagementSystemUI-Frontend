@@ -1,0 +1,457 @@
+﻿@page "/recipe-list"
+@inject RecipeService recipeService
+@inject NavigationManager Navigation
+@inject HttpClient _httpClient
+@inject IJSRuntime JsRuntime
+@inject UserStateService _userStateService
+@inject IHttpClientFactory _httpClientFactory
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@using Newtonsoft.Json 
+@using System.Text
+@using RecipeManagementSystemUI.Models
+@using System.Text.Json
+
+
+<h3 class="mb-4">Recipes</h3>
+
+<RecipeManagementSystemUI.Component.AuthGuard>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <button class="btn btn-primary @(!_userStateService.IsAdmin ? "disabled-btn" : "")" @onclick="OpenAddRecipeModal" disabled="@(!_userStateService.IsAdmin)">Add Recipe</button>
+        <div>
+            <input type="text" class="form-control d-inline-block w-auto me-2" @bind="SearchQuery" placeholder="Search recipes..." @oninput="OnSearchChanged" />
+            <button class="btn btn-outline-success" @onclick="ExportRecipes">Export to CSV</button>
+        </div>
+    </div>
+
+    <table class="table table-hover">
+        <thead class="table-light">
+            <tr>
+                <th @onclick="() => SortRecipes(nameof(Recipe.Name))" class="sortable-column">Recipe Name @SortIcon(nameof(Recipe.Name))</th>
+                <th @onclick="() => SortRecipes(nameof(Recipe.RecipeId))" class="sortable-column">Recipe ID @SortIcon(nameof(Recipe.RecipeId))</th>
+                <th @onclick="() => SortRecipes(nameof(Recipe.Version))" class="sortable-column">Version @SortIcon(nameof(Recipe.Version))</th>
+                <th @onclick="() => SortRecipes(nameof(Recipe.Tool))" class="sortable-column">Tool @SortIcon(nameof(Recipe.Tool))</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (FilteredRecipes.Any())
+            {
+                @foreach (var recipe in PaginatedRecipes)
+                {
+                    <tr @onclick="() => ToggleRecipeSelection(recipe)" 
+                        class="@(SelectedRecipes.Contains(recipe) ? "table-active" : "")">
+                        <td>@recipe.Name</td>
+                        <td>@recipe.RecipeId</td>
+                        <td>@(@recipe.Version ?? "")</td>
+                        <td>@(@recipe.Tool)</td>
+                        <td>
+                            <button class="btn btn-info btn-sm me-2" @onclick="() => OpenViewModal(recipe)">View</button>
+                            <button class="btn btn-warning btn-sm me-2 @(!_userStateService.IsAdmin ? "disabled-btn" : "")"
+                                    @onclick="() => OpenEditRecipeModal(recipe)"
+                                    disabled="@(!_userStateService.IsAdmin)">
+                                Edit
+                            </button>
+                            <button class="btn btn-danger btn-sm @(!_userStateService.IsAdmin ? "disabled-btn" : "")"
+                                    @onclick="() => OpenConfirmModal(recipe)"
+                                    disabled="@(!_userStateService.IsAdmin)">
+                                Delete
+                            </button>
+                        </td>
+                    </tr>
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="5" class="text-center">No recipes found.</td>
+                </tr>
+            }
+@*             @if (XmlRecipes != null)
+            {
+ 
+                <DynamicViewer Items="@XmlRecipes" />
+                
+                
+
+            } *@
+        </tbody>
+    </table>
+
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <button class="btn btn-outline-primary" @onclick="PreviousPage" disabled="@(CurrentPage == 1)">Previous</button>
+        <span>Page @CurrentPage of @TotalPages</span>
+        <button class="btn btn-outline-primary" @onclick="NextPage" disabled="@(CurrentPage == TotalPages)">Next</button>
+    </div>
+@*     <div>
+        <button class="btn btn-primary mt-3" @onclick="OpenCompareModal" disabled="@(SelectedRecipes.Count != 2)">
+            Compare Selected Recipes
+        </button>
+        <InputFile OnChange="HandleFileUpload" />
+
+        @if (isLoading)
+        {
+            <p>Uploading...</p>
+        }
+
+        @if (!string.IsNullOrEmpty(importMessage))
+        {
+            <p>@importMessage</p>
+        }
+    </div> *@
+
+    @* Modals *@
+    <RecipeModal IsRecipeModalOpen="@IsAddModalOpen" OnClose="CloseAddRecipeModal" OnSave="AddRecipe" Title="Add New Recipe" Recipe="@CurrentRecipe"  />
+    <RecipeModal IsRecipeModalOpen="@IsEditModalOpen" OnClose="CloseEditRecipeModal" OnSave="UpdateRecipe" Title="Edit Recipe" Recipe="@CurrentRecipe" />
+    <ViewModal IsViewModalOpen="@IsViewModalOpen" OnClose="CloseViewModal" OnExport="ExportToCsv" Title="View Recipe" Recipe="@CurrentRecipe"  />
+    <CompareModal IsCompareModalOpen="@IsCompareModalOpen" Title="Compare Recipes" SelectedRecipes="@SelectedRecipes" OnClose="CloseCompareModal" />
+    <ConfirmModal IsConfirmModalOpen="@IsConfirmModalOpen" OnConfirm="HandleDeleteConfirmed" OnClose="CloseConfirmModal" Title="Delete Recipe"
+              Message="Are you sure you want to delete this recipe?" />
+</RecipeManagementSystemUI.Component.AuthGuard>
+
+
+
+
+@code {
+    private List<Recipe> Recipes = new();
+    private List<Dictionary<string, object>> XmlRecipes = new();
+    private string jsonString = """ """;
+    private string UserRole = string.Empty;
+
+    private bool isLoading = false;
+    private string importMessage;
+
+    private List<Recipe> SelectedRecipes = new();
+
+    private List<Recipe> FilteredRecipes = new(); // For search/filter functionality
+    private List<Recipe> PaginatedRecipes = new(); // For current page
+    private string SearchQuery = string.Empty;
+
+    private int CurrentPage = 1;
+    private int PageSize = 5;
+
+    private int TotalPages => (int)Math.Ceiling((double)FilteredRecipes.Count / PageSize);
+
+    private bool IsFirstPage => CurrentPage == 1;
+    private bool IsLastPage => CurrentPage >= Math.Ceiling((double)FilteredRecipes.Count / PageSize);
+
+    private Recipe CurrentRecipe = new();
+    private bool IsLoading = false;
+    private bool IsAddModalOpen = false;
+    private bool IsEditModalOpen = false;
+    private bool IsViewModalOpen = false;
+    private bool IsConfirmModalOpen = false;
+    private bool IsCompareModalOpen = false;
+
+    private string CurrentSortColumn = nameof(Recipe.Name);
+    private bool IsSortAscending = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Get the role from local storage (or wherever the role is stored)
+
+        IsLoading = true;
+        try
+        {
+
+            Recipes = await recipeService.GetAllRecipesAsync();
+            //jsonString = await recipeService.GetAllXMLRecipesAsync();
+            //XmlRecipes = JsonConvert.DeserializeObject<List<object>>(jsonString); TODO
+            //XmlRecipes = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(jsonString);
+
+            FilteredRecipes = Recipes;
+            UpdatePagination();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching recipes: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+
+    }
+
+    private void ToggleRecipeSelection(Recipe recipe)
+    {
+        if (SelectedRecipes.Contains(recipe))
+        {
+            SelectedRecipes.Remove(recipe);
+        }
+        else if (SelectedRecipes.Count < 2) // Limit to two selections
+        {
+            SelectedRecipes.Add(recipe);
+        }
+    }
+
+    private void OpenAddRecipeModal()
+    {
+        CurrentRecipe = new Recipe();
+        IsAddModalOpen = true;
+    }
+
+    private void OpenEditRecipeModal(Recipe recipe)
+    {
+        CurrentRecipe = recipe;
+        IsEditModalOpen = true;
+    }
+
+    private void OpenViewModal(Recipe recipe)
+    {
+        CurrentRecipe = recipe;
+        IsViewModalOpen = true;
+    }
+
+    private void OpenCompareModal()
+    {
+        if (SelectedRecipes.Count == 2)
+        {
+            IsCompareModalOpen = true;
+            //await JSRuntime.InvokeVoidAsync("bootstrap.Modal", "#compareModal");
+        }
+
+    }
+
+    private void CloseAddRecipeModal()
+    {
+        CurrentRecipe = null;
+        IsAddModalOpen = false;
+    }
+    private void CloseEditRecipeModal()
+    {
+        CurrentRecipe = null;
+        IsEditModalOpen = false;
+    }
+
+    private void CloseViewModal()
+    {
+        CurrentRecipe = null;
+        IsViewModalOpen = false;
+    }
+
+    private void OpenConfirmModal(Recipe recipe)
+    {
+        CurrentRecipe = recipe;
+        IsConfirmModalOpen = true;
+    }
+    private void CloseConfirmModal()
+    {
+        CurrentRecipe = null;
+        IsConfirmModalOpen = false;
+    }
+    private void CloseCompareModal()
+    {
+        SelectedRecipes.Clear();
+        IsCompareModalOpen = false;
+    }
+
+    private async Task HandleDeleteConfirmed()
+    {
+        if (CurrentRecipe == null) return;
+        try
+        {
+            await recipeService.DeleteRecipeAsync(CurrentRecipe.RecipeId);
+        }
+        finally
+        {
+            Navigation.Refresh();
+            IsConfirmModalOpen = false;
+        }
+        
+    }
+
+    private void SortRecipes(string column)
+    {
+        if (CurrentSortColumn == column)
+        {
+            IsSortAscending = !IsSortAscending;
+        }
+        else
+        {
+            CurrentSortColumn = column;
+            IsSortAscending = true;
+        }
+
+        FilteredRecipes = IsSortAscending
+            ? FilteredRecipes.OrderBy(r => GetPropertyValue(r, column)).ToList()
+            : FilteredRecipes.OrderByDescending(r => GetPropertyValue(r, column)).ToList();
+
+        UpdatePagination();
+    }
+
+    private object GetPropertyValue(Recipe recipe, string propertyName)
+    {
+        var propertyInfo = typeof(Recipe).GetProperty(propertyName);
+        return propertyInfo?.GetValue(recipe, null);
+    }
+
+
+    private MarkupString SortIcon(string column)
+    {
+        if (CurrentSortColumn != column) return new MarkupString("");
+        return IsSortAscending
+            ? new MarkupString("<span>&uarr;</span>")
+            : new MarkupString("<span>&darr;</span>");
+    }
+
+    private async Task ExportRecipes()
+    {
+        var csvData = new StringBuilder();
+        csvData.AppendLine("Name, Id, Version, Tool");
+
+        foreach (var recipe in Recipes)
+        {
+            csvData.AppendLine($"{recipe.Name}, {recipe.RecipeId}, {recipe.Version}, {recipe.Tool}");
+        }
+
+        var fileName = $"Recipes_{DateTime.Now:yyyyMMddHHmmss}.csv";
+        var csvBytes = Encoding.UTF8.GetBytes(csvData.ToString());
+
+        // Create a downloadable file
+        await JsRuntime.InvokeVoidAsync("downloadFile", fileName, csvBytes, "text/csv");
+    }
+
+    private async Task ExportToCsv()
+    {
+        var csvData = new StringBuilder();
+        csvData.AppendLine("Name, ID, Version, Tool, Description, Last Updated");
+        if (CurrentRecipe != null)
+        { 
+            csvData.AppendLine($"{CurrentRecipe.Name}, {CurrentRecipe.RecipeId}, {CurrentRecipe.Version}, {CurrentRecipe.Tool}, {CurrentRecipe.Description}, {CurrentRecipe.LastUpdated}");
+
+            var csvBytes = Encoding.UTF8.GetBytes(csvData.ToString());
+            var base64 = Convert.ToBase64String(csvBytes);
+            var fileName = $"Recipe_{CurrentRecipe.Name}_{DateTime.Now:yyyyMMddHHmmss}.csv";
+
+            await JsRuntime.InvokeVoidAsync("downloadFile", fileName, csvBytes, "text/csv");
+        }
+    }
+
+
+    private void FilterRecipes()
+    {
+        if (string.IsNullOrEmpty(SearchQuery))
+        {
+            FilteredRecipes = Recipes;
+        }
+        else
+        {
+            FilteredRecipes = Recipes
+                .Where(recipe => recipe.Name.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase) ||
+                             recipe.DynamicFields.Values.Any(value =>
+                                 value.ToString().Contains(SearchQuery, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+        }
+
+        CurrentPage = 1; // Reset to the first page when filtering
+        UpdatePagination();
+    }
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        SearchQuery = e.Value?.ToString() ?? string.Empty;
+        FilterRecipes();
+    }
+
+    private void UpdatePagination()
+    {
+        PaginatedRecipes = FilteredRecipes
+            .Skip((CurrentPage - 1) * PageSize)
+            .Take(PageSize)
+            .ToList();
+    }
+
+    private void NextPage()
+    {
+        if (!IsLastPage)
+        {
+            CurrentPage++;
+            UpdatePagination();
+        }
+    }
+
+    private void PreviousPage()
+    {
+        if (!IsFirstPage)
+        {
+            CurrentPage--;
+            UpdatePagination();
+        }
+    }
+
+    private async Task AddRecipe()
+    {
+        IsLoading = true;    
+        try
+        {
+            await recipeService.AddRecipeAsync(CurrentRecipe);
+        }
+        finally
+        {
+            //await recipeService.GetAllRecipesAsync();
+            //Navigation.Refresh();
+            UpdatePagination();
+            IsLoading = false;
+        }
+    
+    }
+
+
+    private async Task UpdateRecipe()
+    {
+        IsLoading = true;
+        try
+        {
+            //var response = await _httpClient.PutAsJsonAsync($"https://localhost:7256/api/Recipes/{CurrentRecipe.Id}", CurrentRecipe);
+            await recipeService.UpdateRecipeAsync(CurrentRecipe);
+
+        }
+        finally
+        {
+            await recipeService.GetAllRecipesAsync();
+            IsLoading = false;
+        }
+        
+    }
+
+    private async Task HandleFileUpload(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        
+        if (file != null)
+        {
+            isLoading = true;
+            
+            var content = new MultipartFormDataContent();
+            content.Add(new StreamContent(file.OpenReadStream()), "xmlFile", file.Name);
+
+            try
+            {
+                _httpClient = _httpClientFactory.CreateClient("AuthenticatedClient");
+                var response = await _httpClient.PostAsync("https://localhost:7256/api/Recipes/import", content);
+                if (response.IsSuccessStatusCode)
+                {
+                    importMessage = "Recipe imported successfully!";
+                }
+                else
+                {
+                    importMessage = $"Failed to import recipe. {response.Content}";
+                }
+            }
+            catch (Exception ex)
+            {
+                importMessage = $"Error: {ex.Message}";
+            }
+            finally
+            {
+                isLoading = false;
+            }
+        }
+    }
+
+    private class User
+    {
+        public string Username { get; set; }
+        public string Role { get; set; }
+    }
+}

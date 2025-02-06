@@ -1,0 +1,21 @@
+﻿@inject UserStateService UserStateService
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@using Newtonsoft.Json
+@using Models
+
+<h3 class="mb-4 text-dark">Welcome, @UserStateService.UserName</h3>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // Subscribe to state change events
+        UserStateService.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        // Unsubscribe from state change events to avoid memory leaks
+        UserStateService.OnChange -= StateHasChanged;
+    }
+
+}

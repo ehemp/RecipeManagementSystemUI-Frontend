@@ -1,0 +1,46 @@
+﻿@page "/recipes/view/{RecipeId}"
+@inject NavigationManager Navigation
+@inject HttpClient Http
+@inject RecipeService recipeService
+@using RecipeManagementSystemUI.Models
+
+
+@if (CurrentRecipe != null)
+{
+    <div>
+        <h3>@CurrentRecipe.Name</h3>
+        <p><strong>Recipe ID:</strong> @CurrentRecipe.RecipeId</p>
+        <p><strong>Last Updated:</strong> @CurrentRecipe.LastUpdated</p>
+        <p><strong>Description:</strong></p>
+        <p>@CurrentRecipe.Description</p>
+    </div>
+    <button type="button" class="btn btn-secondary" @onclick="() => Back()">Back</button>
+}
+else
+{
+    <p>Loading...</p>
+}
+
+@code {
+    [Parameter]
+    public String RecipeId { get; set; }
+
+    private Recipe CurrentRecipe;
+
+    /*protected override async Task OnParametersSetAsync()
+    {
+        base.OnParametersSetAsync();
+        RecipeId = RecipeId;
+        Console.WriteLine("Id set: ", this.RecipeId);
+    }*/
+
+    protected override async Task OnInitializedAsync()
+    {
+        
+        Console.WriteLine("Id ", RecipeId);
+        // Fetch the recipe details by Id
+        CurrentRecipe = await recipeService.GetRecipeByIdAsync(RecipeId);
+    }
+
+    private async Task Back() => Navigation.NavigateTo("/recipe-list");
+}

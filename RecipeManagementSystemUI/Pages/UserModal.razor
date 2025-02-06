@@ -1,0 +1,118 @@
+﻿@inject HttpClient _httpClient
+@inject IHttpClientFactory _httpClientFactory
+@using RecipeManagementSystemUI.Models
+
+<div class="modal fade show" style="@((IsUserModalOpen ? "display: block;" : "display: none;"))" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">@((user.UserId == null) ? "Add User" : "Edit User")</h5>
+                <button type="button" class="btn-close" aria-label="Close" @onclick="Close"></button>
+            </div>
+            <div class="modal-body">
+                <EditForm Model="user" OnValidSubmit="SaveUser">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="mb-3">
+                        <label>Username</label>
+                        <InputText class="form-control" @bind-Value="user.Username" />
+                    </div>
+                    <div class="mb-3">
+                        <label>Password</label>
+                        <InputText class="form-control" type="password" @bind-Value="user.Password" />
+                    </div>
+                    @if (!string.IsNullOrEmpty(user.UserId))
+                    {
+                        <div class="mb-3">
+                            <label>Old Password</label>
+                            <InputText class="form-control" type="password" @bind-Value="user.OldPassword" />
+                        </div>
+                    }
+                    <div class="mb-3">
+                        <label>Role</label>
+                        <InputSelect class="form-control" @bind-Value=user.Role>
+                            <option value="" disabled>Select a Role</option>
+                            <option value="User">User</option>
+                            <option value="Admin">Admin</option>
+                        </InputSelect>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool IsUserModalOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsModalOpenChanged { get; set; }
+    [Parameter] public User User { get; set; }
+    private User user = new User();
+    [Parameter] public string ExMessage { get; set; }
+    [Parameter] public bool UnauthorizedMessageVisible { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (User != null)
+        {
+            user = User;
+        }
+    }
+
+    private async Task SaveUser()
+    {
+        _httpClient = _httpClientFactory.CreateClient("AuthenticatedClient");
+        if (user.UserId == null)
+        {
+            try
+            {
+                await _httpClient.PostAsJsonAsync("https://localhost:7256/api/User/create", user);
+            }
+            catch (Exception ex)
+            {
+                UnauthorizedMessageVisible = true;
+                ExMessage = ex.Message;
+            }
+        }
+        else
+        {   try
+            {
+                Console.WriteLine($"OldPassword {user.OldPassword} {user.Username} {user.Password} {user.Role}");
+                var response = await _httpClient.PutAsJsonAsync($"https://localhost:7256/api/User/{user.UserId}", user);
+                if (response.IsSuccessStatusCode)
+                {
+                    ExMessage = "User changed!";
+                    // Optionally show a success message or reset the form
+                }
+                else
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    ExMessage = error;
+                    Console.WriteLine($"Error at UpdateUser: {ExMessage}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error at UpdateUser: {ex.Message}");
+                UnauthorizedMessageVisible = true;
+                ExMessage = ex.Message;
+            }
+    }
+    
+        
+
+        await OnSave.InvokeAsync();
+        await Close();
+    }
+
+    private async Task Close()
+    {
+        IsUserModalOpen = false;
+        await OnClose.InvokeAsync();
+    }
+
+}

@@ -63,7 +63,7 @@ else if (!string.IsNullOrEmpty(SuccessMessage))
             if (authenticated)
             {
                 SuccessMessage = "Success!";
-                Navigation.NavigateTo("/", forceLoad: true);
+                Navigation.NavigateTo("/", forceLoad: false);
             }
             else
             {

@@ -6,7 +6,7 @@
 @using Newtonsoft.Json
 @using Models
 
-    
+@* <RecipeManagementSystemUI.Component.AuthGuard Refresh="RefreshLayout"> *@
 <div class="top-row ps-3 navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="#">Omni-RMS</a>
@@ -54,14 +54,14 @@
 
         <!-- Login/Logout -->
         <div class="nav-item">
-            <button @onclick="@(_userStateService.TokenPresent ? HandleLogout : HandleLogin)"
+            <button @onclick="@(_authService.Authenticated ? HandleLogout : HandleLogin)"
                     class="btn btn-sm btn-outline-dark w-100">
-                @(_userStateService.TokenPresent ? "Logout" : "Login")
+                @(_authService.Authenticated ? "Logout" : "Login")
             </button>
         </div>
     </nav>
 </div>
-
+@* </RecipeManagementSystemUI.Component.AuthGuard> *@
 
 @code {
     private bool collapseNavMenu = true;
@@ -73,7 +73,7 @@
     protected override async Task OnInitializedAsync()
     {
         _userStateService.OnChange += StateHasChanged;
-        _authService.OnAuthStateChanged += StateHasChanged;
+        _authService.OnAuthStateChanged += RefreshLayout;
         Console.WriteLine($"NavMenu OnInitialized StateHasChanged");
     }
 
@@ -101,12 +101,17 @@
         }
     }
 
+    private void RefreshLayout()
+    {
+        StateHasChanged();
+        Console.WriteLine($"NavMenu refreshed at: {DateTime.Now}");
+    }
 
     public void Dispose()
     {
         // Unsubscribe from state change events to avoid memory leaks
         _userStateService.OnChange -= StateHasChanged;
-        _authService.OnAuthStateChanged -= StateHasChanged;
+        _authService.OnAuthStateChanged -= RefreshLayout;
     }
     private async Task HandleLogin() => Navigation.NavigateTo("/login");
 

@@ -4,7 +4,7 @@
 
 <div class="page">
     <div class="sidebar">
-            <RecipeManagementSystemUI.Component.AuthGuard >
+            <RecipeManagementSystemUI.Component.AuthGuard Refresh="RefreshLayout">
             
                 <NavMenu />
         
@@ -31,7 +31,7 @@
 
     private void RefreshLayout()
     {
-        InvokeAsync(StateHasChanged);
+        StateHasChanged();
         Console.WriteLine($"MainLayout refreshed at: {DateTime.Now}");
     }
 

@@ -130,6 +130,7 @@ public class AuthService : AuthenticationStateProvider
                     Console.WriteLine($"LoginAsync Authorized: {loginResponse.Authorized}");
                     if (loginResponse.Authorized)
                     {
+                        Authenticated = loginResponse.Authorized;
                         NotifyAuthStateChanged();
                         await GetAuthenticationStateAsync();
                         return loginResponse.Authorized;
@@ -164,6 +165,7 @@ public class AuthService : AuthenticationStateProvider
         NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(_currentUser)));
         if (!_currentUser.Identity.IsAuthenticated)
         {
+            Authenticated = _currentUser.Identity.IsAuthenticated;
             NotifyAuthStateChanged();
             Console.WriteLine($"LogOutAsync AuthService {OnAuthStateChanged.GetInvocationList()[0].Target}");
             return _currentUser.Identity.IsAuthenticated;

@@ -82,11 +82,11 @@
         <span>Page @CurrentPage of @TotalPages</span>
         <button class="btn btn-outline-primary" @onclick="NextPage" disabled="@(CurrentPage == TotalPages)">Next</button>
     </div>
-@*     <div>
+     <div>
         <button class="btn btn-primary mt-3" @onclick="OpenCompareModal" disabled="@(SelectedRecipes.Count != 2)">
             Compare Selected Recipes
         </button>
-        <InputFile OnChange="HandleFileUpload" />
+        @* <InputFile OnChange="HandleFileUpload" />
 
         @if (isLoading)
         {
@@ -96,8 +96,8 @@
         @if (!string.IsNullOrEmpty(importMessage))
         {
             <p>@importMessage</p>
-        }
-    </div> *@
+    } *@
+    </div>
 
     @* Modals *@
     <RecipeModal IsRecipeModalOpen="@IsAddModalOpen" OnClose="CloseAddRecipeModal" OnSave="AddRecipe" Title="Add New Recipe" Recipe="@CurrentRecipe"  />

@@ -5,7 +5,7 @@
 @using Models
 @using Newtonsoft.Json
 
-@if (isAuthenticated)
+@if (_authService.Authenticated)
 {
     @ChildContent
 }
@@ -16,6 +16,7 @@
 
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
+    [Parameter] public EventCallback Refresh { get; set; }
 
     private bool _isRendered = false;
 
@@ -23,10 +24,11 @@
     protected override async Task OnInitializedAsync()
     {
         _authService.OnAuthStateChanged += RefreshLayout;
+        //Console.WriteLine($"AuthGuard about to refresh? {DateTime.Now}");
         isAuthenticated = await IsUserAuthenticatedAsync();
         if (!isAuthenticated || !_userStateService.TokenPresent)
         {
-            //Console.WriteLine($"isAuthenticated? {isAuthenticated}");
+            Console.WriteLine($"AuthGuard Navigate to /login isAuthenticated? {isAuthenticated}");
             Navigation.NavigateTo("/login");
         }
         else if (isAuthenticated && _userStateService.TokenPresent)
@@ -44,10 +46,12 @@
         return await Task.FromResult(IsAuthenticated);
     }
 
-    private void RefreshLayout()
+    private async void RefreshLayout()
     {
-        InvokeAsync(StateHasChanged);
-        Console.WriteLine($"AuthGuard refreshed at: {DateTime.Now}");
+        StateHasChanged();
+        await Refresh.InvokeAsync();
+
+        Console.WriteLine($"AuthGuard refreshed at: {DateTime.Now} _authService.Authenticated: {_authService.Authenticated}");
     }
 
     public void Dispose()
